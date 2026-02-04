@@ -1,0 +1,289 @@
+# Configuration API Gateway - Teranga Biz Platform
+# À placer dans le dépôt GitHub : configurations-teranga-biz/api-gateway.yml
+
+server:
+  port: 9197
+
+spring:
+  application:
+    name: api-gateway
+  
+  # Configuration Cloud Gateway
+  cloud:
+    gateway:
+      # Discovery Locator (routage automatique via Eureka)
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      
+      # Configuration globale CORS
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins: 
+              - "http://localhost:3000"
+              - "http://localhost:4200"
+              - "https://teranga-biz.com"
+              - "https://www.teranga-biz.com"
+            allowed-methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowed-headers: 
+              - Authorization
+              - Content-Type
+              - Accept
+              - X-Requested-With
+              - X-User-Id
+              - X-Correlation-Id
+            exposed-headers:
+              - Authorization
+              - X-Total-Count
+              - X-Page-Number
+              - X-Page-Size
+            allow-credentials: true
+            max-age: 3600
+      
+      # Configuration des routes par défaut
+      default-filters:
+        - name: Retry
+          args:
+            retries: 3
+            methods: GET,POST,PUT,DELETE
+            series: SERVER_ERROR
+            exceptions: java.io.IOException,java.util.concurrent.TimeoutException
+            backoff:
+              firstBackoff: 50ms
+              maxBackoff: 500ms
+              factor: 2
+              basedOnPreviousValue: false
+        
+        # Rate Limiting global
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter:
+              replenishRate: 100 # tokens par seconde
+              burstCapacity: 200 # capacité maximale
+              requestedTokens: 1 # tokens par requête
+  
+  # Configuration Redis (pour rate limiting et cache)
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 2000ms
+
+  # Configuration Security
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:http://utilisateurs-service/auth}
+          jwk-set-uri: ${JWT_JWK_SET_URI:http://utilisateurs-service/auth/.well-known/jwks.json}
+
+# Configuration Eureka Client
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://eureka-server:8761/eureka/}
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}  # ✅ CHANGÉ
+    hostname: ${HOSTNAME:localhost}
+    non-secure-port: ${server.port:9197}
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+
+# Configuration JWT
+jwt:
+  secret: ${JWT_SECRET:terangabiz-super-secret-key-for-jwt-signing-minimum-256-bits-required-for-hs256-algorithm}
+  expiration: ${JWT_EXPIRATION:86400000} # 24 heures par défaut
+
+# Configuration Resilience4j (Circuit Breaker)
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        minimumNumberOfCalls: 5
+        recordExceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.HttpServerErrorException
+    instances:
+      # MS-01 : Utilisateurs & Authentification
+      utilisateurs-circuit-breaker:
+        base-config: default
+      
+      # MS-02 : Produits & Catalogue
+      produits-circuit-breaker:
+        base-config: default
+      
+      # MS-03 : Boutiques
+      boutiques-circuit-breaker:
+        base-config: default
+      
+      # MS-04 : Inventaire
+      inventaire-circuit-breaker:
+        base-config: default
+      
+      # MS-05 : Commandes
+      commandes-circuit-breaker:
+        base-config: default
+      
+      # MS-06 : Paiements (configuration plus stricte)
+      paiements-circuit-breaker:
+        slidingWindowSize: 15
+        failureRateThreshold: 30
+        waitDurationInOpenState: 20000
+        minimumNumberOfCalls: 10
+      
+      # MS-07 : Social
+      social-circuit-breaker:
+        base-config: default
+      
+      # MS-08 : Messagerie
+      messagerie-circuit-breaker:
+        base-config: default
+      
+      # MS-09 : Académie
+      academie-circuit-breaker:
+        base-config: default
+      
+      # MS-10 : Partenaires
+      partenaires-circuit-breaker:
+        base-config: default
+      
+      # MS-11 : Publicité
+      publicite-circuit-breaker:
+        base-config: default
+      
+      # MS-12 : Avis & Évaluations
+      avis-circuit-breaker:
+        base-config: default
+      
+      # MS-13 : Certification & Gamification
+      certification-circuit-breaker:
+        base-config: default
+      
+      # MS-14 : Intelligence Artificielle
+      ia-circuit-breaker:
+        slidingWindowSize: 20
+        failureRateThreshold: 60
+        waitDurationInOpenState: 15000
+      
+      # MS-15 : Statistiques & Analyses
+      statistiques-circuit-breaker:
+        base-config: default
+
+  # Configuration des timeouts
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 5s
+        cancelRunningFuture: true
+    instances:
+      utilisateurs-circuit-breaker:
+        timeoutDuration: 3s
+      produits-circuit-breaker:
+        timeoutDuration: 5s
+      boutiques-circuit-breaker:
+        timeoutDuration: 5s
+      inventaire-circuit-breaker:
+        timeoutDuration: 3s
+      commandes-circuit-breaker:
+        timeoutDuration: 7s
+      paiements-circuit-breaker:
+        timeoutDuration: 15s # Plus de temps pour les paiements
+      social-circuit-breaker:
+        timeoutDuration: 5s
+      messagerie-circuit-breaker:
+        timeoutDuration: 4s
+      academie-circuit-breaker:
+        timeoutDuration: 8s
+      partenaires-circuit-breaker:
+        timeoutDuration: 5s
+      publicite-circuit-breaker:
+        timeoutDuration: 4s
+      avis-circuit-breaker:
+        timeoutDuration: 5s
+      certification-circuit-breaker:
+        timeoutDuration: 5s
+      ia-circuit-breaker:
+        timeoutDuration: 20s # Plus de temps pour l'IA
+      statistiques-circuit-breaker:
+        timeoutDuration: 10s
+
+# Configuration Actuator (Monitoring)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway,env,loggers
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+    gateway:
+      enabled: true
+  health:
+    circuitbreakers:
+      enabled: true
+    ratelimiters:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+    tags:
+      application: ${spring.application.name}
+      environment: ${ENVIRONMENT:production}
+
+# Configuration des logs
+logging:
+  level:
+    root: INFO
+    com.platform.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO
+    org.springframework.security: INFO
+    org.springframework.web: WARN
+    io.github.resilience4j: INFO
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:%wEx}"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: /var/log/api-gateway/api-gateway.log
+    max-size: 50MB
+    max-history: 30
+    total-size-cap: 1GB
+
+# Informations de l'application
+info:
+  app:
+    name: ${spring.application.name}
+    description: API Gateway - Point d'entrée unique pour tous les microservices Teranga Biz
+    version: 1.0.0
+    author: Teranga Biz Platform Team
