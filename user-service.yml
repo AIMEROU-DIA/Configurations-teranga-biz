@@ -1,0 +1,122 @@
+# Configuration User Service - Teranga Biz Platform
+# À placer dans le dépôt GitHub : configurations-teranga-biz/user-service.yml
+
+# Port du service
+server:
+  port: 8081
+
+# Configuration Spring Boot
+spring:
+  application:
+    name: user-service
+  
+  # Configuration PostgreSQL
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:teranga_users}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  
+  # Configuration JPA
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:update}
+    show-sql: ${SHOW_SQL:false}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 20
+    open-in-view: false
+  
+  # Configuration Data JPA
+  data:
+    jpa:
+      repositories:
+        enabled: true
+
+# Configuration Eureka Client
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://eureka-server:8761/eureka/}
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+    hostname: ${HOSTNAME:localhost}
+    non-secure-port: ${server.port:8081}
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+# Configuration JWT
+jwt:
+  secret-key: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+  expiration: ${JWT_EXPIRATION:900000}  # 15 minutes
+  refresh-token:
+    expiration: ${JWT_REFRESH_EXPIRATION:604800000}  # 7 jours
+
+# Configuration Springdoc OpenAPI
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+
+# Configuration Actuator (Monitoring)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    db:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+      environment: ${ENVIRONMENT:production}
+
+# Configuration des logs
+logging:
+  level:
+    root: INFO
+    teranga.biz: DEBUG
+    org.springframework.security: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: ${SQL_LOG_LEVEL:INFO}
+    org.hibernate.type.descriptor.sql.BasicBinder: ${SQL_LOG_LEVEL:INFO}
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:%wEx}"
+  file:
+    name: /var/log/user-service/user-service.log
+    max-size: 50MB
+    max-history: 30
+    total-size-cap: 1GB
+
+# Informations de l'application
+info:
+  app:
+    name: ${spring.application.name}
+    description: Service de gestion des utilisateurs et authentification - Teranga Biz Platform
+    version: 1.0.0
+    author: Teranga Biz Platform Team
